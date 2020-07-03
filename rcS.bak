@@ -1,0 +1,59 @@
+#!/bin/sh
+export PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/sbin/scripts
+
+UTC=yes
+. /usr/etc/IMP
+
+mount -n -t proc proc /proc
+mount -n -t ramfs ramfs /tmp
+
+# build var directories 
+/bin/mkdir -m 0777 /tmp/var
+/bin/mkdir -m 0777 /tmp/etc
+/bin/mkdir -m 0777 /var/lock
+/bin/mkdir -m 0777 /var/log
+/bin/mkdir -m 0777 /var/run
+/bin/mkdir -m 0777 /var/tmp
+/bin/mkdir -m 0777 /tmp/vfs_root
+cp -a /usr/etc/* /etc
+
+insmod /lib/linux-kernel-bde.ko
+insmod /lib/linux-bcm-core.ko
+insmod /lib/linux-bcm-net.ko
+insmod /lib/linux-uk-proxy.ko
+
+# Create Broadcom specific devices
+mknod /dev/linux-bcm-core c 126 0
+mknod /dev/linux-bcm-net c 123 0
+mknod /dev/linux-kernel-bde c 127 0
+mknod /dev/linux-uk-proxy c 125 0
+
+/usr/sbin/systime_from_rtc
+
+# start ethnet
+ifconfig $IMP up
+route add 255.255.255.255 $IMP
+
+ifconfig eth0 hw ether `/usr/sbin/flash_mac -x`
+#ifconfig eth0 192.168.19.200
+ifconfig eth0 up
+
+ifconfig lo 127.0.0.1
+route add -net 127.0.0.0 netmask 255.255.0.0 lo > /dev/null 2>&1
+
+#for ntp server
+echo -n > /tmp/ntp_start
+#start services
+/sbin/klogd&
+/usr/sbin/cfgmgr
+/usr/sbin/cmd_agent_ap
+
+/usr/sbin/rc start
+#echo "i" > /proc/gpio
+
+/usr/sbin/push_button &
+
+/usr/sbin/mem_monitor &
+/usr/sbin/utelnetd &
+/usr/etc/poe_monitor &
+/usr/sbin/console

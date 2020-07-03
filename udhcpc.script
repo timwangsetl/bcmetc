@@ -1,0 +1,48 @@
+#!/bin/sh
+
+# udhcpc script edited by Tim Riker <Tim@Rikers.org>
+
+[ -z "$1" ] && echo "Error: should be called from udhcpc" && exit 1
+
+RESOLV_CONF="/etc/resolv.conf"
+[ -n "$broadcast" ] && BROADCAST="broadcast $broadcast"
+[ -n "$subnet" ] && NETMASK="netmask $subnet"
+
+case "$1" in
+	deconfig)
+		/sbin/ifconfig $interface 0.0.0.0
+		/usr/bin/killall -SIGUSR2 arpd > /dev/null 2>&1
+		/bin/rm /tmp/dhcpc.lease > /dev/null 2>&1
+		/bin/rm $RESOLV_CONF > /dev/null 2>&1
+		/usr/sbin/nvram set lan_ipaddr=""
+		/usr/sbin/nvram set lan_netmask=""
+		/usr/sbin/nvram set lan_gateway=""
+		/usr/sbin/nvram set lan_dns=""
+		;;
+
+	renew|bound)
+		/sbin/ifconfig $interface $ip $BROADCAST $NETMASK
+		/usr/sbin/nvram set lan_ipaddr=$ip
+		/usr/sbin/nvram set lan_netmask=$subnet
+		if [ -n "$router" ] ; then
+			while /sbin/route del default gw 0.0.0.0 dev $interface > /dev/null 2>&1 ; do  
+                                :   
+			done
+			for i in $router ; do
+				/sbin/route add default gw $i dev $interface
+				/usr/sbin/nvram set lan_gateway=$i
+			done
+		fi
+		if [ -n "$dns" ] ; then
+		echo -n > $RESOLV_CONF-$$   
+		for i in $dns ; do  
+		          echo "nameserver $i" >> $RESOLV_CONF-$$
+		          /usr/sbin/nvram set lan_dns=$i
+		done   
+		mv $RESOLV_CONF-$$ $RESOLV_CONF
+		fi
+		/usr/bin/killall -SIGUSR2 arpd > /dev/null 2>&1
+		;;
+esac
+
+exit 0

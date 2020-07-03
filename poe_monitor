@@ -1,0 +1,11 @@
+#!/bin/sh
+while :
+do
+stillRunning=$(ps -ef |grep "/usr/sbin/poe" |grep -v "grep")
+if [ "$stillRunning" ] ; then
+sleep 1
+else
+/usr/sbin/poe
+fi
+sleep 5
+done
